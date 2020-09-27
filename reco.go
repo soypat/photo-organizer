@@ -31,6 +31,7 @@ const (
 var ( // flags
 	dir, exts, saveDir, actionFile                                       string
 	mflag, yflag, recursive, dry, help, verbose, interactive, keepFolder bool
+	ignoreFileErr                                                        bool
 	minDim, logLevel, dimensionMin, sizePixelMin, sizeMin                int
 	actionFp                                                             *os.File
 )
@@ -42,6 +43,7 @@ func init() {
 	pflag.StringVarP(&exts, "ext", "t", "*.jpg,*.jpeg,*.mov", "Matching shell file pattern. Separate patterns with commas. See go's filepath.Match()")
 	pflag.StringVar(&actionFile, "actions", "reco.csv", "Filename to write actions performed for a wet run. CSV format: \"Previous location\", \"New location\".")
 
+	pflag.BoolVar(&ignoreFileErr, "noerrstop", false, "Do not interrupt file moving due to non-fatal errors")
 	pflag.BoolVarP(&keepFolder, "keepfolder", "k", false, "Keep base folder name of file when moving file. Automatically avoids duplicate names such as '/2011/2011/a.jpg'")
 	pflag.BoolVarP(&yflag, "year", "y", true, "Organize files by year (year directory)")
 	pflag.BoolVarP(&mflag, "month", "m", false, "Organize files by month (month directory)")
@@ -123,7 +125,7 @@ func run() error {
 					fatalf("pattern %s may be malformed, reading %s: %s", ext, name, err)
 				}
 				if match {
-					files = append(files, name)
+					files = append(files, filepath.Join(dir, name))
 				}
 			}
 		}
@@ -153,8 +155,12 @@ func run() error {
 		case ".jpeg", ".jpg", "png":
 			im, _, err := image.DecodeConfig(fp)
 			if err != nil {
-				errorf("Error decoding: %s: %s\n", file, err)
-				continue
+				if ignoreFileErr {
+					im = image.Config{Height: 3000, Width: 3000}
+				} else {
+					errorf("Error decoding: %s: %s\n", file, err)
+					continue
+				}
 			}
 			size := im.Height * im.Width
 			if size < sizePixelMin || im.Height < dimensionMin || im.Width < dimensionMin {
@@ -176,16 +182,16 @@ func run() error {
 			subfolder = "other"
 		}
 		info, err := fp.Stat()
+		if err != nil {
+			errorf("getting stats for %s: %s", file, err)
+			continue
+		}
 		size := info.Size()
 		if size < int64(sizeMin)*MBtoBytes {
 			debugf("skipping file %s: %dMB too small", file, size/MBtoBytes)
 			continue
 		}
 		if yflag || mflag {
-			if err != nil {
-				errorf("getting stats for %s: %s", file, err)
-				continue
-			}
 			if yflag {
 				subfolder += fmt.Sprintf("/%d", info.ModTime().Year())
 			}
@@ -203,7 +209,11 @@ func run() error {
 
 		err = mv(file, filepath.Join(saveDir, subfolder))
 		if err != nil {
-			return err
+			if ignoreFileErr {
+				errorf("error moving %s -> %s: %s", file, filepath.Join(saveDir, subfolder), err)
+			} else {
+				fatalf("error moving %s -> %s: %s", file, filepath.Join(saveDir, subfolder), err)
+			}
 		}
 		filecounter++
 	}
