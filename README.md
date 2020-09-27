@@ -18,6 +18,7 @@ Flags:
         -h,  --help   Call for help! (default false)
         -k,  --keepfolder   Keep base folder name of file when moving file. Automatically avoids duplicate names such as '/2011/2011/a.jpg' (default false)
         -m,  --month   Organize files by month (month directory) (default false)
+              --noerrstop   Do not interrupt file moving due to non-fatal errors (default false)
         -o,  --output   Directory in which to organize files to (default ./recovered)
         -r,  --recursive   Search for files in subdirectories (default true)
               --size   Minimum filesize in MB (default 0)
