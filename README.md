@@ -1,6 +1,11 @@
 # photo-organizer
 Organize pictures, movies, files in subdirectories
 
+Typical command for a really disorganized folder struct that creates new folder struct in `../Archive` from files in current working working directory. Moves jpegs, and movie files:
+```shell script
+reco -o ../Archive -d . --keepfolder -t "*.jpg,*.jpeg,*.mov,*.JPG,*.JPEG,*.MOV,*.mp4,*.MP4"
+```
+
 run reco.exe -h to see this text:
 ```
 reco is a tool to organize recovered photos super easy.
