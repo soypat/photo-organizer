@@ -32,3 +32,7 @@ Flags:
         Errors:1, Info:2, Print:3, Debug:4 (default 2)
         -y,  --year   Organize files by year (year directory) (default true)
 ```
+
+Here's a longer extension example:
+
+`-t "*.BMP,*.bmp,*.ppt,*.pptx,*.gif,*.docx,*.DOCX,*.doc,*.DOC,*.3gp,*.3GP,*.MTS,*.mts,*.jpg,*.JPG,*.JPEG,*.jpeg,*.MOV,*.mov,*.mp4,*.MP4,*.wmv,*.WMV,*.mpg,*.MPG,*.mpeg,*.MPEG"`

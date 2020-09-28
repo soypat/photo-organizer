@@ -11,14 +11,16 @@ import (
 	"strings"
 
 	"github.com/spf13/pflag"
+	"golang.org/x/image/bmp"
 )
 
 const helpMsg = `reco is a tool to organize recovered photos super easy.
 reco only moves files to a directory. It does not copy nor modify files.
+reco can decode jpeg/png/bmp files to apply size filters.
 Usages:
 	reco [flags]
 Example:
-	reco -r=false -d ./unorganizedPhotos --year
+	reco -r=false -d ./unorganizedPhotos --month
 Flags:`
 
 // MBtoBytes converts MB to bytes by simple multiplication
@@ -41,18 +43,22 @@ func init() {
 	pflag.StringVarP(&dir, "dir", "d", "", "Directory in which to search for files")
 	pflag.StringVarP(&saveDir, "output", "o", defaultRecoveryDir, "Directory in which to organize files to")
 	pflag.StringVarP(&exts, "ext", "t", "*.jpg,*.jpeg,*.mov", "Matching shell file pattern. Separate patterns with commas. See go's filepath.Match()")
+	pflag.BoolVarP(&recursive, "recursive", "r", true, "Search for files in subdirectories")
+	//
 	pflag.StringVar(&actionFile, "actions", "reco.csv", "Filename to write actions performed for a wet run. CSV format: \"Previous location\", \"New location\".")
-
+	pflag.IntVarP(&logLevel, "verbose", "V", 2, "Log level. The higher, the more verbose.\n\t\tErrors:1, Info:2, Print:3, Debug:4")
+	pflag.BoolVar(&dry, "dry", false, "Dry run does nothing (does not move files to directories but still errors or shows verbose output)")
+	//
 	pflag.BoolVar(&ignoreFileErr, "noerrstop", false, "Do not interrupt file moving due to non-fatal errors")
 	pflag.BoolVarP(&keepFolder, "keepfolder", "k", false, "Keep base folder name of file when moving file. Automatically avoids duplicate names such as '/2011/2011/a.jpg'")
+	// time
 	pflag.BoolVarP(&yflag, "year", "y", true, "Organize files by year (year directory)")
 	pflag.BoolVarP(&mflag, "month", "m", false, "Organize files by month (month directory)")
-	pflag.IntVarP(&logLevel, "verbose", "V", 2, "Log level, the higher the more verbose.\n\tErrors:1, Info:2, Print:3, Debug:4")
-	pflag.IntVar(&dimensionMin, "dimensionMin", 300, "Dimension minimum for jpeg/jpg files. (applies to width and height")
+	// size of file and pictures
+	pflag.IntVar(&dimensionMin, "dimensionMin", 300, "Dimension minimum for files. (applies to width and height")
 	pflag.IntVar(&sizeMin, "size", 0, "Minimum filesize in MB")
 	pflag.IntVar(&sizePixelMin, "sizeMin", 100000, "Minimum number of pixels in an image to be processed(jpeg/jpg). Divide this number by a million to get Megapixels.")
-	pflag.BoolVar(&dry, "dry", false, "Dry run does nothing (does not move files to directories but still errors or shows verbose output)")
-	pflag.BoolVarP(&recursive, "recursive", "r", true, "Search for files in subdirectories")
+
 	pflag.BoolVarP(&help, "help", "h", false, "Call for help!")
 	pflag.Lookup("help").Hidden = true
 	pflag.Parse()
@@ -68,6 +74,7 @@ func init() {
 }
 
 func run() error {
+	var totalMovedSize int64
 	var files []string
 	infof("starting reco")
 	printf("logLevel: %d, dry:%t", logLevel, dry)
@@ -152,13 +159,21 @@ func run() error {
 		}
 		var subfolder string
 		switch ext {
-		case ".jpeg", ".jpg", "png":
-			im, _, err := image.DecodeConfig(fp)
+		case ".nef", ".cr2", ".crw", ".erf", ".3fr", ".kdc", ".mos", ".nrw", ".tiff", ".tif":
+			subfolder = "photos"
+		case ".jpeg", ".jpg", ".png", ".bmp":
+			var im image.Config
+			if ext == ".bmp" {
+				im, err = bmp.DecodeConfig(fp)
+			} else {
+				im, _, err = image.DecodeConfig(fp)
+			}
+
 			if err != nil {
 				if ignoreFileErr {
 					im = image.Config{Height: 3000, Width: 3000}
 				} else {
-					errorf("Error decoding: %s: %s\n", file, err)
+					errorf("decoding: %s: %s\n", file, err)
 					continue
 				}
 			}
@@ -168,9 +183,11 @@ func run() error {
 				continue
 			}
 			subfolder = "photos"
-		case ".mov", ".mp4", ".mpeg", ".avi", ".m4p", ".m4b", ".m4v", ".m4a", ".m4r", ".f4v":
+		case ".mov", ".3gp", ".mp4", ".mpeg", ".wmv", ".mts", ".avi", ".m4p", ".m4b", ".m4v", ".m4a", ".m4r", ".f4v":
 			subfolder = "movies"
-		case ".wmf", ".flv":
+		case ".wav", ".mp3":
+			subfolder = "audio"
+		case ".wmf", ".flv", ".svg", ".ai", ".gif", ".thm":
 			subfolder = "media"
 		case ".zip":
 			subfolder = "zips"
@@ -199,7 +216,7 @@ func run() error {
 				subfolder += fmt.Sprintf("/%d", info.ModTime().Month())
 			}
 		}
-		if keepFolder && filepath.Base(subfolder) != filepath.Base(folder) {
+		if keepFolder && filepath.Base(subfolder) != filepath.Base(folder) && filepath.Clean(dir) != filepath.Clean(folder) {
 			subfolder = filepath.Join(subfolder, filepath.Base(folder))
 		}
 		err = fp.Close()
@@ -215,9 +232,11 @@ func run() error {
 				fatalf("error moving %s -> %s: %s", file, filepath.Join(saveDir, subfolder), err)
 			}
 		}
+		totalMovedSize += size
 		filecounter++
 	}
-	infof("processed %d files", filecounter)
+
+	infof("processed %d files (%s)", filecounter, fmtByte(totalMovedSize))
 	if interactive {
 		infof("Press enter to end reco.")
 		fmt.Scanln(&dir)
@@ -301,4 +320,17 @@ func printHelp() {
 			fmt.Printf("\t-%s,  --%s   %s (default %s)\n ", flag.Shorthand, flag.Name, flag.Usage, flag.DefValue)
 		}
 	})
+}
+
+func fmtByte(b int64) string {
+	const unit = 1000
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "kMGTPE"[exp])
 }
