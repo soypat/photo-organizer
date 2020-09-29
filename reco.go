@@ -33,7 +33,7 @@ const (
 var ( // flags
 	dir, exts, saveDir, actionFile                                       string
 	mflag, yflag, recursive, dry, help, verbose, interactive, keepFolder bool
-	ignoreFileErr                                                        bool
+	ignoreFileErr, caseInsensitive                                       bool
 	minDim, logLevel, dimensionMin, sizePixelMin, sizeMin                int
 	actionFp                                                             *os.File
 )
@@ -44,6 +44,7 @@ func init() {
 	pflag.StringVarP(&saveDir, "output", "o", defaultRecoveryDir, "Directory in which to organize files to")
 	pflag.StringVarP(&exts, "ext", "t", "*.jpg,*.jpeg,*.mov", "Matching shell file pattern. Separate patterns with commas. See go's filepath.Match()")
 	pflag.BoolVarP(&recursive, "recursive", "r", true, "Search for files in subdirectories")
+	pflag.BoolVarP(&caseInsensitive, "caseinsensitive", "i", false, "Shell file patterns matches not case sensitive if true.")
 	//
 	pflag.StringVar(&actionFile, "actions", "reco.csv", "Filename to write actions performed for a wet run. CSV format: \"Previous location\", \"New location\".")
 	pflag.IntVarP(&logLevel, "verbose", "V", 2, "Log level. The higher, the more verbose.\n\t\tErrors:1, Info:2, Print:3, Debug:4")
@@ -96,6 +97,9 @@ func run() error {
 	}
 	if recursive {
 		for _, ext := range extensions {
+			if caseInsensitive {
+				ext = strings.ToLower(ext)
+			}
 			debugf("looking for %s in dir: %s", ext, dir)
 			filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 				if info == nil {
@@ -106,7 +110,11 @@ func run() error {
 					return nil
 				}
 				path = strings.ReplaceAll(path, "\\", "/")
-				match, err := filepath.Match(ext, path)
+				pathToMatch := path
+				if caseInsensitive {
+					pathToMatch = strings.ToLower(pathToMatch)
+				}
+				match, err := filepath.Match(ext, pathToMatch)
 				if err != nil {
 					fatalf("pattern %s may be malformed, reading %s: %s", ext, path, err)
 				}
@@ -127,7 +135,12 @@ func run() error {
 			}
 			for _, ext := range extensions {
 				name := strings.ReplaceAll(finfo.Name(), "\\", "/")
-				match, err := filepath.Match(ext, name)
+				nameToMatch := name
+				if caseInsensitive {
+					ext = strings.ToLower(ext)
+					nameToMatch = strings.ToLower(nameToMatch)
+				}
+				match, err := filepath.Match(ext, nameToMatch)
 				if err != nil {
 					fatalf("pattern %s may be malformed, reading %s: %s", ext, name, err)
 				}
@@ -155,11 +168,15 @@ func run() error {
 		ext := strings.ToLower(filepath.Ext(file)) // file extension
 		fp, err := os.Open(file)                   // file pointer
 		if err != nil {
+			if ignoreFileErr && (os.IsPermission(err) || os.IsNotExist(err)) {
+				debugf("skipping due to error %s: %s", file, err)
+				continue
+			}
 			return err
 		}
 		var subfolder string
 		switch ext {
-		case ".nef", ".cr2", ".crw", ".erf", ".3fr", ".kdc", ".mos", ".nrw", ".tiff", ".tif":
+		case ".nef", ".cr2", ".crw", ".erf", ".3fr", ".kdc", ".mos", ".nrw", ".tiff", ".tif", ".jpf", ".jp0":
 			subfolder = "photos"
 		case ".jpeg", ".jpg", ".png", ".bmp":
 			var im image.Config
@@ -183,7 +200,7 @@ func run() error {
 				continue
 			}
 			subfolder = "photos"
-		case ".mov", ".3gp", ".mp4", ".mpeg", ".wmv", ".mts", ".avi", ".m4p", ".m4b", ".m4v", ".m4a", ".m4r", ".f4v":
+		case ".mov", ".3gp", ".mp4", ".mpeg", ".mpg", ".wmv", ".mts", ".avi", ".m4p", ".m4b", ".m4v", ".m4a", ".m4r", ".f4v":
 			subfolder = "movies"
 		case ".wav", ".mp3":
 			subfolder = "audio"
@@ -213,7 +230,7 @@ func run() error {
 				subfolder += fmt.Sprintf("/%d", info.ModTime().Year())
 			}
 			if mflag {
-				subfolder += fmt.Sprintf("/%d", info.ModTime().Month())
+				subfolder += fmt.Sprintf("/%s", info.ModTime().Month().String())
 			}
 		}
 		if keepFolder && filepath.Base(subfolder) != filepath.Base(folder) && filepath.Clean(dir) != filepath.Clean(folder) {
