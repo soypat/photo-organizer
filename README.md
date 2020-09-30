@@ -33,14 +33,8 @@ Flags:
         -y,  --year   Organize files by year (year directory) (default true)
 ```
 
-Here's a longer extension example:
+Long example with many of the typical video, document and image extension and case insensitive search
 
 ```bash
--t "*.BMP,*.bmp,*.ppt,*.pptx,*.gif,*.docx,*.DOCX,*.doc,*.DOC,*.3gp,*.3GP,*.MTS,*.mts,*.jpg,*.JPG,*.JPEG,*.jpeg,*.MOV,*.mov,*.mp4,*.MP4,*.wmv,*.WMV,*.mpg,*.MPG,*.mpeg,*.MPEG"
-```
-
-and one with more image formats and case insensitive search
-
-```bash
--i -t "*.jp0,*.jpf,*.nef,*.bmp,*.ppt,*.pptx,*.gif,*.docx,*.doc,*.3gp,*.mts,*.jpg,*.jpeg,*.mov,*.mp4,*.wmv,*.mpg,*.mpeg"
+-i -t "*.jp0,*.jpf,*.nef,*.bmp,*.ppt,*.pdf,*.pptx,*.gif,*.docx,*.doc,*.3gp,*.mts,*.jpg,*.jpeg,*.mov,*.mp4,*.wmv,*.mpg,*.mpeg,*.avi"
 ```
