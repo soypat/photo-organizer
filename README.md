@@ -39,8 +39,8 @@ Here's a longer extension example:
 -t "*.BMP,*.bmp,*.ppt,*.pptx,*.gif,*.docx,*.DOCX,*.doc,*.DOC,*.3gp,*.3GP,*.MTS,*.mts,*.jpg,*.JPG,*.JPEG,*.jpeg,*.MOV,*.mov,*.mp4,*.MP4,*.wmv,*.WMV,*.mpg,*.MPG,*.mpeg,*.MPEG"
 ```
 
-and one with more image formats
+and one with more image formats and case insensitive search
 
 ```bash
--t "*.jp0,*.JP0,*.jpf,*.JPF,*.nef,*.NEF,*.BMP,*.bmp,*.ppt,*.pptx,*.gif,*.docx,*.DOCX,*.doc,*.DOC,*.3gp,*.3GP,*.MTS,*.mts,*.jpg,*.JPG,*.JPEG,*.jpeg,*.MOV,*.mov,*.mp4,*.MP4,*.wmv,*.WMV,*.mpg,*.MPG,*.mpeg,*.MPEG"
+-i -t "*.jp0,*.jpf,*.nef,*.bmp,*.ppt,*.pptx,*.gif,*.docx,*.doc,*.3gp,*.mts,*.jpg,*.jpeg,*.mov,*.mp4,*.wmv,*.mpg,*.mpeg"
 ```
