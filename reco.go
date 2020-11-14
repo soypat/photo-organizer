@@ -31,11 +31,11 @@ const (
 )
 
 var ( // flags
-	dir, exts, saveDir, actionFile                                       string
-	mflag, yflag, recursive, dry, help, verbose, interactive, keepFolder bool
-	ignoreFileErr, caseInsensitive                                       bool
-	minDim, logLevel, dimensionMin, sizePixelMin, sizeMin                int
-	actionFp                                                             *os.File
+	dir, exts, saveDir, actionFile                              string
+	mflag, yflag, recursive, dry, help, interactive, keepFolder bool
+	ignoreFileErr, caseInsensitive                              bool
+	logLevel, dimensionMin, sizePixelMin, sizeMin               int
+	actionFp                                                    *os.File
 )
 
 func init() {
@@ -96,34 +96,37 @@ func run() error {
 		fatalf("directory  %s not exist", dir)
 	}
 	if recursive {
-		for _, ext := range extensions {
-			if caseInsensitive {
-				ext = strings.ToLower(ext)
+		if caseInsensitive {
+			for i := range extensions {
+				extensions[i] = strings.ToLower(extensions[i])
 			}
-			debugf("looking for %s in dir: %s", ext, dir)
-			filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-				if info == nil {
-					errorf("got nil info for %s", path)
-					return nil
-				}
-				if info.IsDir() {
-					return nil
-				}
-				path = strings.ReplaceAll(path, "\\", "/")
-				pathToMatch := path
-				if caseInsensitive {
-					pathToMatch = strings.ToLower(pathToMatch)
-				}
+		}
+		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+			if info == nil {
+				errorf("got nil info for %s", path)
+				return nil
+			}
+			if info.IsDir() {
+				return nil
+			}
+			path = strings.ReplaceAll(path, "\\", "/")
+			pathToMatch := path
+			if caseInsensitive {
+				pathToMatch = strings.ToLower(pathToMatch)
+			}
+			for _, ext := range extensions {
 				match, err := filepath.Match(ext, pathToMatch)
 				if err != nil {
 					fatalf("pattern %s may be malformed, reading %s: %s", ext, path, err)
 				}
 				if match {
+					debugf("matched %s on %s", ext, path)
 					files = append(files, path)
+					break
 				}
-				return nil
-			})
-		}
+			}
+			return nil
+		})
 	} else {
 		finfos, err := ioutil.ReadDir(dir)
 		if err != nil {
@@ -161,7 +164,6 @@ func run() error {
 			fatalf("could not create actions file %s: %s", actionFile, err)
 		}
 		defer actionFp.Close()
-		defer actionFp.Sync()
 	}
 	for _, file := range files {
 		folder, _ := filepath.Split(file)
@@ -290,15 +292,6 @@ func mv(filedir, newdir string) error {
 	return err
 }
 
-func sliceContains(slis []string, s string) int {
-	for i, sli := range slis {
-		if sli == s {
-			return i
-		}
-	}
-	return -1
-}
-
 func debugf(format string, args ...interface{}) {
 	if logLevel >= 4 {
 		logf("debu", format, args)
@@ -323,9 +316,9 @@ func fatalf(format string, args ...interface{}) { logf("fata", format, args); os
 func logf(tag, format string, args []interface{}) {
 	msg := fmt.Sprintf(format, args...)
 	if args == nil {
-		msg = fmt.Sprintf(format)
+		msg = format
 	}
-	fmt.Println(fmt.Sprintf("[%s] %s", tag, msg))
+	fmt.Printf("[%s] %s\n", tag, msg)
 }
 
 func printHelp() {

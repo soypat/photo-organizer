@@ -8,7 +8,7 @@ all: clean dependencies build
 clean:
 	rm -vf bin/*
 
-build: build-macos build-linux build-windows
+build: build-windows build-linux build-macos
 
 build-macos: build-macos-amd64 build-macos-i386
 
